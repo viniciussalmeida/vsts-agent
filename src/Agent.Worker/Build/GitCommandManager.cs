@@ -69,6 +69,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // git config gc.auto 0
         Task<int> GitDisableAutoGC(IExecutionContext context, string repositoryPath);
 
+        // git repack -adfl
+        Task<int> GitRepack(IExecutionContext context, string repositoryPath);
+
         // git lfs install
         Task<int> GitLFSInstall(IExecutionContext context, string repositoryPath);
 
@@ -347,6 +350,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             context.Debug("Disable git auto garbage collection.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "config", "gc.auto 0");
+        }
+
+        // git repack -adfl
+        public async Task<int> GitRepack(IExecutionContext context, string repositoryPath)
+        {
+            context.Debug("Compress .git directory.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "repack", "-adfl");
         }
 
         // git lfs install

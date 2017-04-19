@@ -20,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             IExecutionContext executionContext,
             LegacyTrackingConfig copy,
             string sourcesDirectoryNameOnly,
+            string repositoryType,
             bool useNewArtifactsDirectoryName = false)
         {
             // Set the directories.
@@ -35,6 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             CollectionUrl = executionContext.Variables.System_TFCollectionUrl;
             DefinitionId = copy.DefinitionId;
             HashKey = copy.HashKey;
+            RepositoryType = repositoryType;
             RepositoryUrl = copy.RepositoryUrl;
             System = copy.System;
         }
@@ -53,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             HashKey = hashKey;
             RepositoryUrl = endpoint.Url.AbsoluteUri;
             System = BuildSystem;
-            UpdateJobRunProperties(executionContext);
+            UpdateJobRunProperties(executionContext, endpoint);
         }
 
         [JsonProperty("build_artifactstagingdirectory")]
@@ -115,16 +117,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
+        public string RepositoryType { get; set; }
+
         [JsonProperty("build_sourcesdirectory")]
         public string SourcesDirectory { get; set; }
 
         [JsonProperty("common_testresultsdirectory")]
         public string TestResultsDirectory { get; set; }
 
-        public void UpdateJobRunProperties(IExecutionContext executionContext)
+        public void UpdateJobRunProperties(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             CollectionUrl = executionContext.Variables.System_TFCollectionUrl;
             DefinitionName = executionContext.Variables.Build_DefinitionName;
+            RepositoryType = endpoint.Type;
             LastRunOn = DateTimeOffset.Now;
         }
     }

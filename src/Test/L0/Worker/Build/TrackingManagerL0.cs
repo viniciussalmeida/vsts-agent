@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                     Constants.Build.Path.TopLevelTrackingConfigFile);
                 var config = JsonConvert.DeserializeObject<TopLevelTrackingConfig>(
                     value: File.ReadAllText(topLevelFile));
-                    Assert.Equal(1, config.LastBuildDirectoryNumber);
+                Assert.Equal(1, config.LastBuildDirectoryNumber);
                 // Manipulate the expected seconds due to loss of granularity when the
                 // date-time-offset is serialized in a friendly format.
                 Assert.True(testStartOn.AddSeconds(-1) <= config.LastBuildDirectoryCreatedOn);
@@ -505,9 +505,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 DateTimeOffset testStartOn = DateTimeOffset.Now;
                 TrackingConfig config = new TrackingConfig();
                 string trackingFile = Path.Combine(_workFolder, "trackingconfig.json");
-
+                ServiceEndpoint endpoint = new ServiceEndpoint();
                 // Act.
-                _trackingManager.UpdateJobRunProperties(_ec.Object, config, trackingFile);
+                _trackingManager.UpdateJobRunProperties(_ec.Object, endpoint, config, trackingFile);
 
                 // Assert.
                 config = _trackingManager.LoadIfExists(_ec.Object, trackingFile) as TrackingConfig;

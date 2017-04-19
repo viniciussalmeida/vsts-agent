@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         void MarkForGarbageCollection(IExecutionContext executionContext, TrackingConfigBase config);
 
-        void UpdateJobRunProperties(IExecutionContext executionContext, TrackingConfig config, string file);
+        void UpdateJobRunProperties(IExecutionContext executionContext, ServiceEndpoint endpoint, TrackingConfig config, string file);
 
         void MarkExpiredForGarbageCollection(IExecutionContext executionContext, TimeSpan expiration);
 
@@ -141,10 +141,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 config = new TrackingConfig(
                     executionContext,
                     legacyConfig,
-                    // The sources folder wasn't stored in the legacy format - only the
+                    // The repository type and sources folder wasn't stored in the legacy format - only the
                     // build folder was stored. Since the hash key has changed, it is
-                    // unknown what the source folder was named. Just set the folder name
-                    // to "s" so the property isn't left blank.
+                    // unknown what the source folder was named and what the repository type is. Just set the folder name
+                    // to "s" and repository type to "unknown", so the property isn't left blank. 
+                    repositoryType: "unknown",
                     sourcesDirectoryNameOnly: Constants.Build.Path.SourcesDirectory);
             }
 
@@ -159,12 +160,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             WriteToFile(file, config);
         }
 
-        public void UpdateJobRunProperties(IExecutionContext executionContext, TrackingConfig config, string file)
+        public void UpdateJobRunProperties(IExecutionContext executionContext, ServiceEndpoint endpoint, TrackingConfig config, string file)
         {
             Trace.Entering();
 
             // Update the info properties and save the file.
-            config.UpdateJobRunProperties(executionContext);
+            config.UpdateJobRunProperties(executionContext, endpoint);
             WriteToFile(file, config);
         }
 

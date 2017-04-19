@@ -4,6 +4,8 @@ using System;
 using System.IO;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -88,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 // For existing tracking config files, update the job run properties.
                 Trace.Verbose("Updating job run properties.");
-                trackingManager.UpdateJobRunProperties(executionContext, newConfig, trackingFile);
+                trackingManager.UpdateJobRunProperties(executionContext, endpoint, newConfig, trackingFile);
             }
 
             // Mark the old configuration for garbage collection.
@@ -155,6 +157,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // delete unused build directories
             trackingManager.DisposeCollectedGarbage(executionContext);
+
+            // give source provider a chance to run maintenance operation
+            Trace.Info("Scan all SourceFolder tracking files.");
+            string searchRoot = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), Constants.Build.Path.SourceRootMappingDirectory);
+            if (!Directory.Exists(searchRoot))
+            {
+                executionContext.Output(StringUtil.Loc("GCDirNotExist", searchRoot));
+                return;
+            }
+
+            var allTrackingFiles = Directory.EnumerateFiles(searchRoot, Constants.Build.Path.TrackingConfigFile, SearchOption.AllDirectories);
+            Trace.Verbose($"Find {allTrackingFiles.Count()} tracking files.");
+            foreach (var trackingFile in allTrackingFiles)
+            {
+                try
+                {
+                    executionContext.Output(StringUtil.Loc("EvaluateTrackingFile", trackingFile));
+                    TrackingConfigBase tracking = trackingManager.LoadIfExists(executionContext, trackingFile);
+
+                    // detect whether the tracking file is in new format.
+                    TrackingConfig newTracking = tracking as TrackingConfig;
+                    if (newTracking == null)
+                    {
+                        executionContext.Output(StringUtil.Loc("GCOldFormatTrackingFile", trackingFile));
+                    }
+                    else if (string.IsNullOrEmpty(newTracking.RepositoryType))
+                    {
+                        // repository not been set.
+                    }
+                    else
+                    {
+                        var extensionManager = HostContext.GetService<IExtensionManager>();
+                        ISourceProvider sourceProvider = extensionManager.GetExtensions<ISourceProvider>().FirstOrDefault(x => string.Equals(x.RepositoryType, newTracking.RepositoryType, StringComparison.OrdinalIgnoreCase));
+                        if (sourceProvider != null)
+                        {
+                            sourceProvider.RunMaintenanceOperations(executionContext, newTracking.SourcesDirectory, executionContext.CancellationToken);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Error(StringUtil.Loc("ErrorDuringBuildGC", trackingFile));
+                    executionContext.Error(ex);
+                }
+            }
         }
 
         private TrackingConfig ConvertToNewFormat(
@@ -202,6 +249,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext,
                 legacyConfig,
                 sourcesDirectoryNameOnly,
+                endpoint.Type,
                 // The legacy artifacts directory has been deleted at this point - see above - so
                 // switch the configuration to using the new naming scheme.
                 useNewArtifactsDirectoryName: true);

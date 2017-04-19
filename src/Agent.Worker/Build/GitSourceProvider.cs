@@ -671,6 +671,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
+        public override async Task RunMaintenanceOperations(IExecutionContext executionContext, string repositoryPath, CancellationToken cancellationToken)
+        {
+            Trace.Entering();
+            // Validate args.
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNullOrEmpty(repositoryPath, nameof(repositoryPath));
+            executionContext.Output($"Run maintenance operation on repository: {repositoryPath}");
+
+            // Initialize git command manager
+            _gitCommandManager = HostContext.GetService<IGitCommandManager>();
+            await _gitCommandManager.LoadGitExecutionInfo(executionContext, useBuiltInGit: true);
+
+            // if the folder is missing, create it
+            if (!Directory.Exists(repositoryPath) || !Directory.Exists(Path.Combine(repositoryPath, ".git")))
+            {
+                return;
+            }
+
+            // git repack
+            int exitCode_repack = await _gitCommandManager.GitRepack(executionContext, repositoryPath);
+            if (exitCode_repack != 0)
+            {
+                throw new InvalidOperationException($"Git repack failed with exit code: {exitCode_repack}");
+            }
+        }
+
         public override void SetVariablesInEndpoint(IExecutionContext executionContext, ServiceEndpoint endpoint)
         {
             base.SetVariablesInEndpoint(executionContext, endpoint);

@@ -192,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 
                 // Assert.
                 _trackingManager.Verify(x => x.LoadIfExists(_ec.Object, _trackingFile));
-                _trackingManager.Verify(x => x.UpdateJobRunProperties(_ec.Object, _existingConfig, _trackingFile));
+                _trackingManager.Verify(x => x.UpdateJobRunProperties(_ec.Object, new ServiceEndpoint(), _existingConfig, _trackingFile));
             }
         }
 
@@ -293,7 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             else if (existingConfigKind == ExistingConfigKind.Matching)
             {
                 _trackingManager
-                    .Setup(x => x.UpdateJobRunProperties(_ec.Object, _existingConfig, _trackingFile));
+                    .Setup(x => x.UpdateJobRunProperties(_ec.Object, new ServiceEndpoint(), _existingConfig, _trackingFile));
             }
             else
             {
