@@ -6,6 +6,7 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
 using System.Linq;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -135,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return newConfig;
         }
 
-        public void RunMaintenanceOperation(IExecutionContext executionContext)
+        public async Task RunMaintenanceOperation(IExecutionContext executionContext)
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -192,7 +193,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         ISourceProvider sourceProvider = extensionManager.GetExtensions<ISourceProvider>().FirstOrDefault(x => string.Equals(x.RepositoryType, newTracking.RepositoryType, StringComparison.OrdinalIgnoreCase));
                         if (sourceProvider != null)
                         {
-                            sourceProvider.RunMaintenanceOperations(executionContext, newTracking.SourcesDirectory, executionContext.CancellationToken);
+                            string repositoryPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newTracking.SourcesDirectory);
+                            await sourceProvider.RunMaintenanceOperations(executionContext, repositoryPath, executionContext.CancellationToken);
                         }
                     }
                 }
