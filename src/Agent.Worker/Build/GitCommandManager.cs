@@ -71,6 +71,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         // git repack -adfl
         Task<int> GitRepack(IExecutionContext context, string repositoryPath);
+        
+        // git count-objects -v -H
+        Task<int> GitCountObjects(IExecutionContext context, string repositoryPath);
 
         // git lfs install
         Task<int> GitLFSInstall(IExecutionContext context, string repositoryPath);
@@ -357,6 +360,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             context.Debug("Compress .git directory.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "repack", "-adfl");
+        }
+
+        // git count-objects -v -H
+        public async Task<int> GitCountObjects(IExecutionContext context, string repositoryPath)
+        {
+            context.Debug("Inspect .git directory.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "count-objects", "-v -H");
         }
 
         // git lfs install
