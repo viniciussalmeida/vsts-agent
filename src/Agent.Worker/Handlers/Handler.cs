@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using System.IO;
+using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -42,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Endpoints, nameof(ExecutionContext.Endpoints));
 
+            int endpointsEnvBlockSize = 0;
             // Add the endpoints to the environment variable dictionary.
             foreach (ServiceEndpoint endpoint in ExecutionContext.Endpoints)
             {
@@ -63,29 +65,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     continue; // This should never happen.
                 }
 
-                AddEnvironmentVariable(
-                    key: $"ENDPOINT_URL_{partialKey}",
-                    value: endpoint.Url?.ToString());
-                AddEnvironmentVariable(
-                    key: $"ENDPOINT_AUTH_{partialKey}",
+                endpointsEnvBlockSize += AddEnvironmentVariable(
+                     key: $"ENDPOINT_URL_{partialKey}",
+                     value: endpoint.Url?.ToString());
+                endpointsEnvBlockSize += AddEnvironmentVariable(
+                     key: $"ENDPOINT_AUTH_{partialKey}",
                     // Note, JsonUtility.ToString will not null ref if the auth object is null.
                     value: JsonUtility.ToString(endpoint.Authorization));
                 if (endpoint.Authorization != null && endpoint.Authorization.Scheme != null)
                 {
-                    AddEnvironmentVariable(
+                    endpointsEnvBlockSize += AddEnvironmentVariable(
                         key: $"ENDPOINT_AUTH_SCHEME_{partialKey}",
                         value: endpoint.Authorization.Scheme);
 
                     foreach (KeyValuePair<string, string> pair in endpoint.Authorization.Parameters)
                     {
-                        AddEnvironmentVariable(
+                        endpointsEnvBlockSize += AddEnvironmentVariable(
                             key: $"ENDPOINT_AUTH_PARAMETER_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
                             value: pair.Value);
                     }
                 }
                 if (endpoint.Id != Guid.Empty)
                 {
-                    AddEnvironmentVariable(
+                    endpointsEnvBlockSize += AddEnvironmentVariable(
                         key: $"ENDPOINT_DATA_{partialKey}",
                         // Note, JsonUtility.ToString will not null ref if the data object is null.
                         value: JsonUtility.ToString(endpoint.Data));
@@ -94,12 +96,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         foreach (KeyValuePair<string, string> pair in endpoint.Data)
                         {
-                            AddEnvironmentVariable(
+                            endpointsEnvBlockSize += AddEnvironmentVariable(
                                 key: $"ENDPOINT_DATA_{partialKey}_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
                                 value: pair.Value);
                         }
                     }
                 }
+            }
+
+            if (endpointsEnvBlockSize > 0)
+            {
+                ExecutionContext.Output($"Endpoints has consumed {endpointsEnvBlockSize} bytes of environment blcok.");
             }
         }
 
@@ -110,21 +117,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if (ExecutionContext.SecureFiles != null && ExecutionContext.SecureFiles.Count > 0)
             {
+                int secureFilesEnvBlockSize = 0;
                 // Add the secure files to the environment variable dictionary.
                 foreach (SecureFile secureFile in ExecutionContext.SecureFiles)
                 {
                     if (secureFile != null && secureFile.Id != Guid.Empty)
                     {
                         string partialKey = secureFile.Id.ToString();
-                        AddEnvironmentVariable(
+                        secureFilesEnvBlockSize += AddEnvironmentVariable(
                             key: $"SECUREFILE_NAME_{partialKey}",
                             value: secureFile.Name
                         );
-                        AddEnvironmentVariable(
+                        secureFilesEnvBlockSize += AddEnvironmentVariable(
                             key: $"SECUREFILE_TICKET_{partialKey}",
                             value: secureFile.Ticket
                         );
                     }
+                }
+
+                if (secureFilesEnvBlockSize > 0)
+                {
+                    ExecutionContext.Output($"SecureFiles has consumed {secureFilesEnvBlockSize} bytes of environment blcok.");
                 }
             }
         }
@@ -135,12 +148,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             Trace.Entering();
             ArgUtil.NotNull(Inputs, nameof(Inputs));
 
+            int inputsEnvBlockSize = 0;
             // Add the inputs to the environment variable dictionary.
             foreach (KeyValuePair<string, string> pair in Inputs)
             {
-                AddEnvironmentVariable(
+                inputsEnvBlockSize += AddEnvironmentVariable(
                     key: $"INPUT_{pair.Key?.Replace(' ', '_').ToUpperInvariant()}",
                     value: pair.Value);
+            }
+
+            if (inputsEnvBlockSize > 0)
+            {
+                ExecutionContext.Output($"Inputs has consumed {inputsEnvBlockSize} bytes of environment blcok.");
             }
         }
 
@@ -152,6 +171,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
 
+            int variablesEnvBlockSize = 0;
             // Add the public variables.
             var names = new List<string>();
             foreach (KeyValuePair<string, string> pair in ExecutionContext.Variables.Public)
@@ -159,12 +179,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // Add "agent.jobstatus" using the unformatted name and formatted name.
                 if (string.Equals(pair.Key, Constants.Variables.Agent.JobStatus, StringComparison.OrdinalIgnoreCase))
                 {
-                    AddEnvironmentVariable(pair.Key, pair.Value);
+                    variablesEnvBlockSize += AddEnvironmentVariable(pair.Key, pair.Value);
                 }
 
                 // Add the variable using the formatted name.
                 string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
-                AddEnvironmentVariable(formattedKey, pair.Value);
+                variablesEnvBlockSize += AddEnvironmentVariable(formattedKey, pair.Value);
 
                 // Store the name.
                 names.Add(pair.Key ?? string.Empty);
@@ -173,7 +193,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Add the public variable names.
             if (!excludeNames)
             {
-                AddEnvironmentVariable("VSTS_PUBLIC_VARIABLES", StringUtil.ConvertToJson(names));
+                variablesEnvBlockSize += AddEnvironmentVariable("VSTS_PUBLIC_VARIABLES", JsonUtility.ToString(names));
             }
 
             if (!excludeSecrets)
@@ -184,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     // Add the variable using the formatted name.
                     string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
-                    AddEnvironmentVariable($"SECRET_{formattedKey}", pair.Value);
+                    variablesEnvBlockSize += AddEnvironmentVariable($"SECRET_{formattedKey}", pair.Value);
 
                     // Store the name.
                     secretNames.Add(pair.Key ?? string.Empty);
@@ -193,16 +213,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // Add the secret variable names.
                 if (!excludeNames)
                 {
-                    AddEnvironmentVariable("VSTS_SECRET_VARIABLES", StringUtil.ConvertToJson(secretNames));
+                    variablesEnvBlockSize += AddEnvironmentVariable("VSTS_SECRET_VARIABLES", JsonUtility.ToString(secretNames));
                 }
+            }
+
+            if (variablesEnvBlockSize > 0)
+            {
+                ExecutionContext.Output($"Variables has consumed {variablesEnvBlockSize} bytes of environment blcok.");
             }
         }
 
-        protected void AddEnvironmentVariable(string key, string value)
+        protected int AddEnvironmentVariable(string key, string value)
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
             Environment[key] = value ?? string.Empty;
+
+#if OS_WINDOWS
+            return Encoding.Unicode.GetByteCount($"{key}={Environment[key]}\0");
+#else
+            // only windows has problem with Environment block size limit
+            return 0;
+#endif
         }
 
         protected void AddTaskVariablesToEnvironment()
@@ -211,18 +243,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             Trace.Entering();
             ArgUtil.NotNull(ExecutionContext.TaskVariables, nameof(ExecutionContext.TaskVariables));
 
+            int taskVariablesEnvBlockSize = 0;
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Public)
             {
                 // Add the variable using the formatted name.
                 string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
-                AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
+                taskVariablesEnvBlockSize += AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
             }
 
             foreach (KeyValuePair<string, string> pair in ExecutionContext.TaskVariables.Private)
             {
                 // Add the variable using the formatted name.
                 string formattedKey = (pair.Key ?? string.Empty).Replace('.', '_').Replace(' ', '_').ToUpperInvariant();
-                AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
+                taskVariablesEnvBlockSize += AddEnvironmentVariable($"VSTS_TASKVARIABLE_{formattedKey}", pair.Value);
+            }
+
+            if (taskVariablesEnvBlockSize > 0)
+            {
+                ExecutionContext.Output($"TaskVariables has consumed {taskVariablesEnvBlockSize} bytes of environment blcok.");
             }
         }
 
@@ -236,11 +274,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return;
             }
 
-            // prepend path section            
+            // prepend path section       
+            int pathEnvBlockSize = 0;
             string prepend = string.Join(Path.PathSeparator.ToString(), ExecutionContext.PrependPath.Reverse<string>());
             string originalPath = ExecutionContext.Variables.Get(Constants.PathVariable) ?? System.Environment.GetEnvironmentVariable(Constants.PathVariable) ?? string.Empty;
             string newPath = VarUtil.PrependPath(prepend, originalPath);
-            AddEnvironmentVariable(Constants.PathVariable, newPath);
+            pathEnvBlockSize += AddEnvironmentVariable(Constants.PathVariable, newPath);
+
+            if (pathEnvBlockSize > 0)
+            {
+                ExecutionContext.Output($"Prepend %Path% has consumed {pathEnvBlockSize} bytes of environment blcok.");
+            }
         }
     }
 }
