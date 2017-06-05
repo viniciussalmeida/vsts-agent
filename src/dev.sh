@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="1.0.1"
+DOTNETSDK_VERSION="2.0.0-preview2-006341"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 pushd $SCRIPT_DIR
@@ -187,7 +187,7 @@ function publish ()
 function copyBin ()
 {
     echo Copying ${1}
-    pushd ${1}/bin/${BUILD_CONFIG}/netcoreapp1.1 > /dev/null
+    pushd ${1}/bin/${BUILD_CONFIG}/netcoreapp2.0 > /dev/null
 
     source_dir=$(ls -d */)publish/
     if [ ! -d "$source_dir" ]; then
@@ -288,8 +288,8 @@ function buildtest ()
 function package ()
 {
     # get the runtime we are build for
-    # if exist Agent.Listener/bin/${BUILD_CONFIG}/netcoreapp1.1
-    build_folder="Agent.Listener/bin/${BUILD_CONFIG}/netcoreapp1.1"
+    # if exist Agent.Listener/bin/${BUILD_CONFIG}/netcoreapp2.0
+    build_folder="Agent.Listener/bin/${BUILD_CONFIG}/netcoreapp2.0"
     if [ ! -d "${build_folder}" ]; then
         echo "You must build first.  Expecting to find ${build_folder}"
     fi
