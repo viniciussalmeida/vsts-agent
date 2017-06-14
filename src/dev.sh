@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
-DOTNETSDK_VERSION="2.0.0-preview2-006341"
+DOTNETSDK_VERSION="2.0.0-preview2-006391"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 pushd $SCRIPT_DIR
@@ -23,31 +23,32 @@ fi
 
 # allow for #if defs in code
 define_os='OS_WINDOWS'
-runtime_id='win7-x64'
-if [[ "$PLATFORM" == 'linux' ]]; then
-   define_os='OS_LINUX'
-   if [ -e /etc/os-release ]; then
-        . /etc/os-release
-        case "$ID.$VERSION_ID" in
-            "centos.7")
-                runtime_id='centos.7-x64';;
-            "rhel.7.2")
-                runtime_id='rhel.7.2-x64';;
-            "ubuntu.14.04")
-                runtime_id='ubuntu.14.04-x64';;
-            "ubuntu.16.04")
-                runtime_id='ubuntu.16.04-x64';;
-        esac
-        if [[ ("$runtime_id" == "win7-x64") ]]; then
-            failed "Can not determine runtime identifier from '$ID.$VERSION_ID'"
-        fi
-    else
-        failed "Can not read os information from /etc/os-release"
-    fi
-elif [[ "$PLATFORM" == 'darwin' ]]; then
-   define_os='OS_OSX'
-   runtime_id='osx.10.11-x64'
-fi
+runtime_id='linux-x64'
+# runtime_id='win7-x64'
+# if [[ "$PLATFORM" == 'linux' ]]; then
+#    define_os='OS_LINUX'
+#    if [ -e /etc/os-release ]; then
+#         . /etc/os-release
+#         case "$ID.$VERSION_ID" in
+#             "centos.7")
+#                 runtime_id='centos.7-x64';;
+#             "rhel.7.2")
+#                 runtime_id='rhel.7.2-x64';;
+#             "ubuntu.14.04")
+#                 runtime_id='ubuntu.14.04-x64';;
+#             "ubuntu.16.04")
+#                 runtime_id='ubuntu.16.04-x64';;
+#         esac
+#         if [[ ("$runtime_id" == "win7-x64") ]]; then
+#             failed "Can not determine runtime identifier from '$ID.$VERSION_ID'"
+#         fi
+#     else
+#         failed "Can not read os information from /etc/os-release"
+#     fi
+# elif [[ "$PLATFORM" == 'darwin' ]]; then
+#    define_os='OS_OSX'
+#    runtime_id='osx.10.11-x64'
+# fi
 
 build_dirs=("Microsoft.VisualStudio.Services.Agent" "Agent.Listener" "Agent.Worker" "Test")
 build_clean_dirs=("Agent.Listener" "Test" "Agent.Worker" "Microsoft.VisualStudio.Services.Agent")
@@ -112,12 +113,16 @@ function rundotnet ()
 
     if [[ ("$dotnet_cmd" == "publish") ]]; then
         cfg_args="-c ${BUILD_CONFIG}"
-        runtime_args="--runtime ${runtime_id}"        
+        runtime_args="--runtime ${runtime_id}"
         if [[ "$define_os" == 'OS_WINDOWS' ]]; then
             msbuild_args="//p:OSConstant=${define_os}"
         else
             msbuild_args="/p:OSConstant=${define_os}"
         fi    
+    fi
+
+    if [[ ("$dotnet_cmd" == "restore") ]]; then
+        runtime_args="--runtime ${runtime_id}"
     fi
 
     echo "${cfg_args}"
