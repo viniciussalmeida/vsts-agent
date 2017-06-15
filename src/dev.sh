@@ -1,13 +1,14 @@
 #!/bin/bash
 DEV_CMD=$1
 DEV_SUBCMD=$2
+DEV_PLATFORMCMD=$3
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="2.0.0-preview2-006391"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
-
+PLATFORMAUTODETECT=true
 pushd $SCRIPT_DIR
 
 BUILD_CONFIG="Debug"
@@ -15,40 +16,48 @@ if [[ "$DEV_SUBCMD" == "Release" ]]; then
     BUILD_CONFIG="Release"
 fi
 
-PLATFORM_NAME=`uname`
-PLATFORM="windows"
-if [[ ("$PLATFORM_NAME" == "Linux") || ("$PLATFORM_NAME" == "Darwin") ]]; then
-   PLATFORM=`echo "${PLATFORM_NAME}" | awk '{print tolower($0)}'`
+if [[ "$DEV_SUBCMD" == "windows" ]]; then
+    PLATFORM="windows"
+    PLATFORMAUTODETECT=false
+elif [[ "$DEV_SUBCMD" == "linux" ]]; then
+    PLATFORM="linux"
+    PLATFORMAUTODETECT=false
+elif [[ "$DEV_SUBCMD" == "osx" ]]; then
+    PLATFORM="darwin"
+    PLATFORMAUTODETECT=false
+fi
+
+if [[ "$DEV_PLATFORMCMD" == "windows" ]]; then
+    PLATFORM="windows"
+    PLATFORMAUTODETECT=false
+elif [[ "$DEV_PLATFORMCMD" == "linux" ]]; then
+    PLATFORM="linux"
+    PLATFORMAUTODETECT=false
+elif [[ "$DEV_PLATFORMCMD" == "osx" ]]; then
+    PLATFORM="darwin"
+    PLATFORMAUTODETECT=false
+fi
+
+CURRENT_PLATFORM_NAME=`uname`
+CURRENT_PLATFORM="windows"
+if [[ ("$CURRENT_PLATFORM_NAME" == "Linux") || ("$CURRENT_PLATFORM_NAME" == "Darwin") ]]; then
+    CURRENT_PLATFORM=`echo "${PLATFORM_NAME}" | awk '{print tolower($0)}'`
+fi
+
+if [[ "$PLATFORMAUTODETECT" == true ]]; then
+    PLATFORM="${CURRENT_PLATFORM}"
 fi
 
 # allow for #if defs in code
 define_os='OS_WINDOWS'
-runtime_id='linux-x64'
-# runtime_id='win7-x64'
-# if [[ "$PLATFORM" == 'linux' ]]; then
-#    define_os='OS_LINUX'
-#    if [ -e /etc/os-release ]; then
-#         . /etc/os-release
-#         case "$ID.$VERSION_ID" in
-#             "centos.7")
-#                 runtime_id='centos.7-x64';;
-#             "rhel.7.2")
-#                 runtime_id='rhel.7.2-x64';;
-#             "ubuntu.14.04")
-#                 runtime_id='ubuntu.14.04-x64';;
-#             "ubuntu.16.04")
-#                 runtime_id='ubuntu.16.04-x64';;
-#         esac
-#         if [[ ("$runtime_id" == "win7-x64") ]]; then
-#             failed "Can not determine runtime identifier from '$ID.$VERSION_ID'"
-#         fi
-#     else
-#         failed "Can not read os information from /etc/os-release"
-#     fi
-# elif [[ "$PLATFORM" == 'darwin' ]]; then
-#    define_os='OS_OSX'
-#    runtime_id='osx.10.11-x64'
-# fi
+runtime_id='win7-x64'
+if [[ "$PLATFORM" == 'linux' ]]; then
+   define_os='OS_LINUX'
+   runtime_id='linux-x64'
+elif [[ "$PLATFORM" == 'darwin' ]]; then
+   define_os='OS_OSX'
+   runtime_id='osx.10.11-x64'
+fi
 
 build_dirs=("Microsoft.VisualStudio.Services.Agent" "Agent.Listener" "Agent.Worker" "Test")
 build_clean_dirs=("Agent.Listener" "Test" "Agent.Worker" "Microsoft.VisualStudio.Services.Agent")
@@ -104,7 +113,7 @@ function rundotnet ()
     runtime_args=""
     if [[ ("$dotnet_cmd" == "build") ]]; then
         cfg_args="-c ${BUILD_CONFIG}"
-        if [[ "$define_os" == 'OS_WINDOWS' ]]; then
+        if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
             msbuild_args="//p:OSConstant=${define_os}"
         else
             msbuild_args="/p:OSConstant=${define_os}"
@@ -114,7 +123,7 @@ function rundotnet ()
     if [[ ("$dotnet_cmd" == "publish") ]]; then
         cfg_args="-c ${BUILD_CONFIG}"
         runtime_args="--runtime ${runtime_id}"
-        if [[ "$define_os" == 'OS_WINDOWS' ]]; then
+        if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
             msbuild_args="//p:OSConstant=${define_os}"
         else
             msbuild_args="/p:OSConstant=${define_os}"
@@ -151,7 +160,7 @@ function build ()
 {
     generateConstant
     
-    if [[ "$define_os" == 'OS_WINDOWS' ]]; then
+    if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
         reg_out=`reg query "HKLM\SOFTWARE\Microsoft\MSBuild\ToolsVersions\4.0" -v MSBuildToolsPath`
         msbuild_location=`echo $reg_out | tr -d '\r\n' | tr -s ' ' | cut -d' ' -f5 | tr -d '\r\n'`
               
@@ -234,14 +243,14 @@ function layout ()
     fi
 
     # clean up files not meant for platform
-    if [[ ("$PLATFORM_NAME" == "Linux") || ("$PLATFORM_NAME" == "Darwin") ]]; then
+    if [[ ("$PLATFORM" == 'linux') || ("$PLATFORM" == 'darwin') ]]; then
         rm ${LAYOUT_DIR}/*.cmd
     else
         rm ${LAYOUT_DIR}/*.sh
     fi
     
     heading Externals ...
-    bash ./Misc/externals.sh || checkRC externals.sh
+    bash ./Misc/externals.sh $PLATFORM || checkRC externals.sh
 }
 
 function update ()
