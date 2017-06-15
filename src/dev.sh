@@ -1,14 +1,12 @@
 #!/bin/bash
 DEV_CMD=$1
 DEV_SUBCMD=$2
-DEV_PLATFORMCMD=$3
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAYOUT_DIR="$SCRIPT_DIR/../_layout"
 DOWNLOAD_DIR="$SCRIPT_DIR/../_downloads"
 DOTNETSDK_ROOT="$SCRIPT_DIR/../_dotnetsdk"
 DOTNETSDK_VERSION="2.0.0-preview2-006391"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
-PLATFORMAUTODETECT=true
 pushd $SCRIPT_DIR
 
 BUILD_CONFIG="Debug"
@@ -16,36 +14,10 @@ if [[ "$DEV_SUBCMD" == "Release" ]]; then
     BUILD_CONFIG="Release"
 fi
 
-if [[ "$DEV_SUBCMD" == "windows" ]]; then
-    PLATFORM="windows"
-    PLATFORMAUTODETECT=false
-elif [[ "$DEV_SUBCMD" == "linux" ]]; then
-    PLATFORM="linux"
-    PLATFORMAUTODETECT=false
-elif [[ "$DEV_SUBCMD" == "osx" ]]; then
-    PLATFORM="darwin"
-    PLATFORMAUTODETECT=false
-fi
-
-if [[ "$DEV_PLATFORMCMD" == "windows" ]]; then
-    PLATFORM="windows"
-    PLATFORMAUTODETECT=false
-elif [[ "$DEV_PLATFORMCMD" == "linux" ]]; then
-    PLATFORM="linux"
-    PLATFORMAUTODETECT=false
-elif [[ "$DEV_PLATFORMCMD" == "osx" ]]; then
-    PLATFORM="darwin"
-    PLATFORMAUTODETECT=false
-fi
-
-CURRENT_PLATFORM_NAME=`uname`
-CURRENT_PLATFORM="windows"
-if [[ ("$CURRENT_PLATFORM_NAME" == "Linux") || ("$CURRENT_PLATFORM_NAME" == "Darwin") ]]; then
-    CURRENT_PLATFORM=`echo "${PLATFORM_NAME}" | awk '{print tolower($0)}'`
-fi
-
-if [[ "$PLATFORMAUTODETECT" == true ]]; then
-    PLATFORM="${CURRENT_PLATFORM}"
+PLATFORM_NAME=`uname`
+PLATFORM="windows"
+if [[ ("$PLATFORM_NAME" == "Linux") || ("$PLATFORM_NAME" == "Darwin") ]]; then
+    PLATFORM=`echo "${PLATFORM_NAME}" | awk '{print tolower($0)}'`
 fi
 
 # allow for #if defs in code
