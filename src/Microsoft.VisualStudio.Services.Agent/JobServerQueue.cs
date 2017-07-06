@@ -24,7 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent
     public sealed class JobServerQueue : AgentService, IJobServerQueue
     {
         // Default delay for Dequeue process
-        private static readonly TimeSpan _delayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(200);
+        private static readonly TimeSpan _aggressiveDelayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan _delayForWebConsoleLineDequeue = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan _delayForTimelineUpdateDequeue = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan _delayForFileUploadDequeue = TimeSpan.FromMilliseconds(1000);
 
@@ -62,6 +63,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         private bool _queueInProcess = false;
 
         public event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
+
+        // Web console dequeue will start with process queue every 250ms for the first 10 times.
+        // Then the dequeue will happen every 500ms.
+        // In this way, customer still can get instance live console output on job start, 
+        // at the same time we can cut the load to server after customer watch the build for 2.5s
+        private int _webConsoleLineAggressiveDequeueCount = 0;
+        private const int _webConsoleLineAggressiveDequeueLimit = 10;
+        private bool _webConsoleLineAggressiveDequeue = true;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -194,6 +203,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             while (!_jobCompletionSource.Task.IsCompleted || runOnce)
             {
+                if (_webConsoleLineAggressiveDequeue && ++_webConsoleLineAggressiveDequeueCount > _webConsoleLineAggressiveDequeueLimit)
+                {
+                    Trace.Info("Stop aggressive process web console line queue.");
+                    _webConsoleLineAggressiveDequeue = false;
+                }
+
                 List<List<string>> batchedLines = new List<List<string>>();
                 List<string> currentBatch = new List<string>();
                 string line;
@@ -253,7 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
                 else
                 {
-                    await Task.Delay(_delayForWebConsoleLineDequeue);
+                    await Task.Delay(_webConsoleLineAggressiveDequeue ? _aggressiveDelayForWebConsoleLineDequeue : _delayForWebConsoleLineDequeue);
                 }
             }
         }
